@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pintar para Niños</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0; /* Remove default body margin */
+      overflow: hidden; /* Prevent scrollbars */
+      touch-action: manipulation; /* Suppress default touch behaviors */
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #4CAF50; /* Green theme */
+    }
+
+    #palette {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .color-button {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      margin: 5px;
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .color-button.active {
+      border: 2px solid #000;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #canvas {
+      border: 2px solid #ccc;
+      background-color: #fff;
+      touch-action: none; /* Important for preventing scrolling on canvas */
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      align-items: center; /* Vertically align items */
+    }
+
+    .size-button {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      font-size: 0.9em;
+      box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      touch-action: manipulation; /* Prevent extra behaviors on buttons */
+    }
+
+    .size-button.active {
+      background-color: #4CAF50;
+      color: white;
+      border-color: #4CAF50;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #clear-button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      background-color: #f44336;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      touch-action: manipulation; /* Prevent extra behaviors on button*/
+    }
+
+    #clear-button:hover {
+      background-color: #d32f2f;
+    }
+
+    #message {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+<h1>¡A Pintar!</h1>
+<div id="palette">
+  <div class="color-button" style="background-color: red;" data-color="red"></div>
+  <div class="color-button" style="background-color: blue;" data-color="blue"></div>
+  <div class="color-button" style="background-color: green;" data-color="green"></div>
+  <div class="color-button" style="background-color: yellow;" data-color="yellow"></div>
+  <div class="color-button" style="background-color: orange;" data-color="orange"></div>
+  <div class="color-button" style="background-color: purple;" data-color="purple"></div>
+  <div class="color-button" style="background-color: black;" data-color="black"></div>
+  <div class="color-button" style="background-color: white;" data-color="white"></div>
+</div>
+<canvas id="canvas" width="300" height="200"></canvas>
+<div id="controls">
+  <button class="size-button" data-size="5">Pequeño</button>
+  <button class="size-button active" data-size="10">Mediano</button>
+  <button class="size-button" data-size="20">Grande</button>
+  <button id="clear-button">Borrar</button>
+</div>
+<p id="message">¡Usa tus dedos para dibujar!</p>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const palette = document.getElementById('palette');
+  const sizeButtons = document.querySelectorAll('.size-button');
+  const clearButton = document.getElementById('clear-button');
+  const messageElement = document.getElementById('message');
+
+  let currentColor = 'red';
+  let brushSize = 10;
+  let isDrawing = false;
+  let history = []; // To store drawing history for undo/redo (optional)
+
+  // Set up initial canvas size
+  function resizeCanvas() {
+    canvas.width = window.innerWidth * 0.8;  // 80% of window width
+    canvas.height = window.innerHeight * 0.6; // 60% of window height
+  }
+  resizeCanvas();
+
+  // --- Color Palette ---
+  palette.addEventListener('click', (event) => {
+    if (event.target.classList.contains('color-button')) {
+      currentColor = event.target.dataset.color;
+      document.querySelectorAll('.color-button').forEach(button => {
+        button.classList.remove('active');
+      });
+      event.target.classList.add('active');
+    }
+  });
+
+  // --- Brush Size ---
+  sizeButtons.forEach(button => {
+    button.addEventListener('click', (event) => {
+      brushSize = parseInt(event.target.dataset.size);
+      sizeButtons.forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    });
+  });
+
+  // --- Clear Canvas ---
+  clearButton.addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    history = []; // Clear history
+    messageElement.textContent = '¡Lienzo borrado!';
+  });
+
+  // --- Drawing ---
+  function startDrawing(event) {
+    isDrawing = true;
+    let x, y;
+    if (event.type === 'touchstart') {
+      const touch = event.touches[0];
+      x = touch.clientX;
+      y = touch.clientY;
+    } else {
+      x = event.clientX;
+      y = event.clientY;
+    }
+    // Adjust coordinates for canvas offset
+    const rect = canvas.getBoundingClientRect();
+    x -= rect.left;
+    y -= rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    event.preventDefault(); // Prevent scrolling
+  }
+
+  function draw(event) {
+    if (!isDrawing) return;
+    let x, y;
+    if (event.type === 'touchmove') {
+      const touch = event.touches[0];
+      x = touch.clientX;
+      y = touch.clientY;
+    } else {
+      x = event.clientX;
+      y = event.clientY;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    x -= rect.left;
+    y -= rect.top;
+
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';  // Rounded ends for smoother lines
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();  // start a new path.
+    ctx.moveTo(x,y); //move the new path to the current position
+    event.preventDefault();
+  }
+
+  function endDrawing(event) {
+    if (!isDrawing) return;
+    isDrawing = false;
+    ctx.stroke();
+    ctx.closePath();
+    // Store the current canvas state in history (optional for undo/redo)
+    history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    messageElement.textContent = '¡Sigue dibujando!';
+    event.preventDefault();
+  }
+
+  // --- Event Listeners ---
+  // Touch events for iPad
+  canvas.addEventListener('touchstart', startDrawing);
+  canvas.addEventListener('touchmove', draw);
+  canvas.addEventListener('touchend', endDrawing);
+  // Mouse events for desktop (optional, for testing)
+  canvas.addEventListener('mousedown', startDrawing);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', endDrawing);
+  // Prevent scrolling
+  canvas.addEventListener('touchcancel', endDrawing);
+
+  window.addEventListener('resize', resizeCanvas);
+</script>
+</body>
+</html>
